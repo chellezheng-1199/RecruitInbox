@@ -81,6 +81,10 @@
   .todo-meta { font-size:14px; margin-top:6px; }
   .t-date { color:var(--text); font-weight:650; }
   .t-time { color:var(--blue); font-weight:650; }
+  .todo-actions { display:flex; gap:2px; flex:none; margin-left:4px; }
+  .todo-btn { background:transparent; border:none; color:#94a3b8; padding:2px 8px; border-radius:6px; cursor:pointer; font-size:14px; box-shadow:none; line-height:1.4; }
+  .todo-btn.edit:hover { background:#e0f2fe; color:#0284c7; }
+  .todo-btn.del:hover { background:#fee2e2; color:#ef4444; }
   .add-btn { background:var(--card); color:var(--blue); border:1px dashed #93b4f5; width:100%; margin-bottom:10px; box-shadow:none; }
   .add-btn:hover { transform:none; border-color:var(--blue); background:#f0f6ff; }
   .add-form { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:12px; flex-direction:column; gap:8px; box-shadow:var(--shadow); }
@@ -253,7 +257,7 @@ function renderTodo(){
     const dt=fmtEventDate(it.event_date);
     const tm=(it.event_time&&it.event_time!=='无')?'  <span class="t-time">⏰ '+esc(it.event_time)+'</span>':'';
     const meta=dt?('📅 <span class="t-date">'+esc(dt)+'</span>'+tm):'无日期';
-    html+='<div class="todo-item'+(it.done?' done':'')+'" data-idx="'+idx+'"><input type="checkbox" class="todo-check"'+(it.done?' checked':'')+'><span class="tag '+esc(it.type)+'">'+esc(it.type)+'</span><div class="todo-main"><div class="todo-title">'+esc(it.company)+(it.subject?' — '+esc(it.subject):'')+'</div><div class="todo-meta">'+meta+'</div></div></div>';
+    html+='<div class="todo-item'+(it.done?' done':'')+'" data-idx="'+idx+'"><input type="checkbox" class="todo-check"'+(it.done?' checked':'')+'><span class="tag '+esc(it.type)+'">'+esc(it.type)+'</span><div class="todo-main"><div class="todo-title">'+esc(it.company)+(it.subject?' — '+esc(it.subject):'')+'</div><div class="todo-meta">'+meta+'</div></div><span class="todo-actions"><button class="todo-btn edit" title="编辑">✎</button><button class="todo-btn del" title="删除">✕</button></span></div>';
   });
   list.innerHTML=html;
   list.querySelectorAll('.todo-check').forEach(cb=>{
@@ -261,6 +265,12 @@ function renderTodo(){
       const idx=+cb.closest('.todo-item').dataset.idx;
       toggle(sorted[idx].id);
     });
+  });
+  list.querySelectorAll('.todo-btn.edit').forEach(b=>{
+    b.addEventListener('click',()=>{ openEditForm(sorted[+b.closest('.todo-item').dataset.idx]); });
+  });
+  list.querySelectorAll('.todo-btn.del').forEach(b=>{
+    b.addEventListener('click',()=>{ deleteItem(sorted[+b.closest('.todo-item').dataset.idx]); });
   });
 }
 
@@ -290,13 +300,28 @@ function renderCalendar(){
   cal.querySelectorAll('.cal-nav').forEach(b=>b.onclick=()=>{ calMonth+=+b.dataset.d; if(calMonth<0){calMonth=11;calYear--;} if(calMonth>11){calMonth=0;calYear++;} renderCalendar(); });
 }
 
+let editingId=null;
 function showAddForm(){
+  editingId=null;
+  document.getElementById('add-todo').textContent='＋ 手动添加待办';
+  document.getElementById('af-name').value=''; document.getElementById('af-time').value='';
   document.getElementById('add-form').style.display='flex';
   const d=document.getElementById('af-date');
   if(!d.value){ const t=new Date(); d.value=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'); }
 }
-function hideAddForm(){ document.getElementById('add-form').style.display='none'; }
-async function addTodo(){
+function openEditForm(it){
+  editingId=it.id;
+  document.getElementById('af-name').value=it.company||'';
+  document.getElementById('af-type').value=it.type||'面试';
+  document.getElementById('af-date').value=(it.event_date&&it.event_date!=='无')?it.event_date:'';
+  document.getElementById('af-time').value=(it.event_time&&it.event_time!=='无')?it.event_time:'';
+  document.getElementById('add-todo').textContent='✎ 正在编辑：'+(it.company||'').slice(0,10);
+  document.getElementById('add-form').style.display='flex';
+  document.getElementById('add-form').scrollIntoView({behavior:'smooth',block:'center'});
+  document.getElementById('af-name').focus();
+}
+function hideAddForm(){ document.getElementById('add-form').style.display='none'; editingId=null; document.getElementById('add-todo').textContent='＋ 手动添加待办'; }
+async function saveTodo(){
   const name=document.getElementById('af-name').value.trim();
   const etype=document.getElementById('af-type').value;
   const date=document.getElementById('af-date').value;
@@ -304,11 +329,23 @@ async function addTodo(){
   if(!name){ alert('请输入事项名称'); return; }
   if(!date){ alert('请选择日期'); return; }
   try{
-    const res=await fetch('/api/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,type:etype,date,time})});
+    const url=editingId?'/api/edit':'/api/add';
+    const body=editingId?{id:editingId,name,type:etype,date,time}:{name,type:etype,date,time};
+    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const data=await res.json();
-    if(!data.ok){ alert(data.error||'添加失败'); return; }
+    if(!data.ok){ alert(data.error||'保存失败'); return; }
+    editingId=null;
     document.getElementById('af-name').value=''; document.getElementById('af-time').value='';
     hideAddForm(); await refreshData();
+  }catch(e){ alert('操作出错：'+e); }
+}
+async function deleteItem(it){
+  if(!confirm('确定删除「'+(it.company||'未命名')+'」吗？')) return;
+  try{
+    const res=await fetch('/api/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:it.id})});
+    const data=await res.json();
+    if(!data.ok){ alert(data.error||'删除失败'); return; }
+    await refreshData();
   }catch(e){ alert('操作出错：'+e); }
 }
 
@@ -380,7 +417,7 @@ function showTab(name){
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>showTab(t.dataset.tab)));
 document.getElementById('refresh').addEventListener('click',refresh);
 document.getElementById('add-todo').addEventListener('click',showAddForm);
-document.getElementById('af-save').addEventListener('click',addTodo);
+document.getElementById('af-save').addEventListener('click',saveTodo);
 document.getElementById('af-cancel').addEventListener('click',hideAddForm);
 document.getElementById('settings-btn').addEventListener('click',openSettings);
 document.getElementById('settings-close').addEventListener('click',closeSettings);

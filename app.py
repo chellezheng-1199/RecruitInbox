@@ -191,6 +191,58 @@ def api_add():
     return jsonify({"ok": True, "id": item["id"]})
 
 
+@app.route("/api/edit", methods=["POST"])
+def api_edit():
+    """编辑一条事项（常用于修正手动录入，或修正误分类的类型/时间）。"""
+    data = request.get_json(silent=True) or {}
+    item_id = data.get("id")
+    if not item_id:
+        return jsonify({"ok": False, "error": "缺少 id"}), 400
+    cfg = config.config
+    store = storage.load(cfg)
+    for it in store.get("items", []):
+        if it.get("id") == item_id:
+            if data.get("name"):
+                it["company"] = str(data["name"]).strip()
+            if data.get("type"):
+                it["type"] = data["type"]
+            if data.get("date"):
+                it["event_date"] = str(data["date"]).strip()
+            if "time" in data:
+                it["event_time"] = (str(data.get("time") or "").strip() or "无")
+            try:
+                it["ts"] = datetime.datetime.strptime(it["event_date"], "%Y-%m-%d").replace(hour=12).timestamp()
+            except Exception:
+                pass
+            store["last_updated"] = now_str()
+            storage.save(store, cfg)
+            return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "未找到该事项"}), 404
+
+
+@app.route("/api/delete", methods=["POST"])
+def api_delete():
+    """删除一条事项。邮件来源的会加入跳过名单，避免下次刷新又出现。"""
+    data = request.get_json(silent=True) or {}
+    item_id = data.get("id")
+    if not item_id:
+        return jsonify({"ok": False, "error": "缺少 id"}), 400
+    cfg = config.config
+    store = storage.load(cfg)
+    items = store.get("items", [])
+    target = next((it for it in items if it.get("id") == item_id), None)
+    if target is None:
+        return jsonify({"ok": False, "error": "未找到该事项"}), 404
+    store["items"] = [it for it in items if it.get("id") != item_id]
+    if not target.get("manual"):
+        skipped = set(store.get("skipped_ids", []))
+        skipped.add(item_id)
+        store["skipped_ids"] = sorted(skipped)
+    store["last_updated"] = now_str()
+    storage.save(store, cfg)
+    return jsonify({"ok": True})
+
+
 @app.route("/api/settings", methods=["GET"])
 def api_get_settings():
     return jsonify(schedule.load_settings())
