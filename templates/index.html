@@ -3,7 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>求职邮件看板</title>
+<title>RecruitInbox</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #e6edf5; --card: #f7fafc; --text: #1e293b; --muted: #64748b;
@@ -24,6 +27,7 @@
   .wrap { max-width:1040px; margin:0 auto; padding:28px 20px 72px; }
   header { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:20px; }
   h1 { font-size:24px; margin:0; letter-spacing:-.02em; }
+  .brand { font-family:'Poppins',-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; font-weight:700; letter-spacing:-.01em; }
   .meta { color:var(--muted); font-size:13px; }
   .actions { display:flex; gap:8px; align-items:center; }
   button { background:var(--blue); border:none; color:#fff; padding:9px 18px; border-radius:10px; cursor:pointer; font-size:14px; font-weight:500; box-shadow:0 2px 8px rgba(2,132,199,.28); transition:transform .12s ease, box-shadow .12s ease, filter .12s ease; }
@@ -121,7 +125,7 @@
 <div class="wrap">
   <header>
     <div>
-      <h1>📮 求职邮件看板</h1>
+      <h1>📮 <span class="brand">RecruitInbox</span></h1>
       <div class="meta" id="meta"></div>
     </div>
     <div class="actions"><button id="settings-btn" class="ghost">⚙️ 刷新设置</button><button id="refresh">立即刷新</button></div>
