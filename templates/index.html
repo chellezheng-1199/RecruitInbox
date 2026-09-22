@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>求职邮件看板</title>
+<style>
+  :root {
+    --bg: #e6edf5; --card: #f7fafc; --text: #1e293b; --muted: #64748b;
+    --border: #e5e9f2; --blue: #0284c7; --amber: #f59e0b; --purple: #8b5cf6;
+    --green: #10b981; --gray: #94a3b8; --red: #ef4444; --teal: #14b8a6;
+    --shadow: 0 1px 2px rgba(15,23,42,.05), 0 8px 24px rgba(15,23,42,.06);
+    --shadow-sm: 0 1px 2px rgba(15,23,42,.05);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin:0;
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    color:var(--text); line-height:1.6;
+    background-color:var(--bg);
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpath d='M24 0H0V24' fill='none' stroke='%23bacadc' stroke-opacity='0.42' stroke-width='1'/%3E%3C/svg%3E");
+    min-height:100vh;
+  }
+  .wrap { max-width:1040px; margin:0 auto; padding:28px 20px 72px; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:20px; }
+  h1 { font-size:24px; margin:0; letter-spacing:-.02em; }
+  .meta { color:var(--muted); font-size:13px; }
+  .actions { display:flex; gap:8px; align-items:center; }
+  button { background:var(--blue); border:none; color:#fff; padding:9px 18px; border-radius:10px; cursor:pointer; font-size:14px; font-weight:500; box-shadow:0 2px 8px rgba(2,132,199,.28); transition:transform .12s ease, box-shadow .12s ease, filter .12s ease; }
+  button:hover { filter:brightness(1.04); transform:translateY(-1px); }
+  button:disabled { background:var(--gray); box-shadow:none; cursor:not-allowed; }
+
+  .tabs { display:flex; gap:4px; width:fit-content; padding:4px; background:rgba(247,250,252,.85); border:1px solid var(--border); border-radius:13px; margin-bottom:22px; box-shadow:var(--shadow-sm); }
+  .tab { background:transparent; color:var(--muted); padding:8px 20px; border-radius:9px; font-size:14px; font-weight:500; }
+  .tab.active { color:#fff; background:linear-gradient(135deg,#0284c7,#0ea5e9); box-shadow:0 3px 10px rgba(2,132,199,.32); }
+  .panel { display:none; }
+
+  .summary { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px; }
+  .chip { background:var(--card); border:1px solid var(--border); border-radius:999px; padding:6px 14px; font-size:13px; color:var(--muted); box-shadow:var(--shadow-sm); }
+  .chip b { color:var(--text); }
+  .setup { background:#fff7ed; border:1px solid #fdba74; border-radius:14px; padding:22px; color:#9a3412; font-size:14px; }
+  .setup code { background:#ffe4c7; padding:2px 6px; border-radius:5px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:18px; margin-bottom:14px; box-shadow:var(--shadow); transition:transform .12s ease, box-shadow .12s ease; }
+  .card:hover { transform:translateY(-1px); box-shadow:0 2px 4px rgba(15,23,42,.06), 0 14px 32px rgba(15,23,42,.09); }
+  .card .top { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .tag { font-size:12px; font-weight:600; border-radius:999px; padding:3px 10px; color:#fff; letter-spacing:.01em; }
+  .tag.面试 { background:var(--blue); }
+  .tag.测评 { background:var(--amber); }
+  .tag.笔试 { background:var(--purple); }
+  .tag.宣讲会 { background:var(--teal); }
+  .tag.Offer { background:var(--green); }
+  .tag.拒信 { background:var(--gray); }
+  .tag.其他 { background:var(--gray); }
+  .company { font-weight:650; }
+  .subject { font-size:15px; font-weight:500; }
+  .from, .time { color:var(--muted); font-size:12px; }
+  .summary-text { margin:10px 0 0; font-size:14px; color:#475569; }
+  .footer { display:flex; gap:16px; margin-top:10px; flex-wrap:wrap; }
+  .deadline { font-size:13px; color:var(--muted); }
+  .urgency { font-size:12px; border-radius:999px; padding:2px 10px; }
+  .urgency.高 { background:#fee2e2; color:var(--red); }
+  .urgency.中 { background:#fef3c7; color:#b45309; }
+  .urgency.低 { background:#f1f5f9; color:var(--gray); }
+  .empty { text-align:center; color:var(--muted); padding:48px 0; }
+
+  /* 待办 + 日历 */
+  .todo-layout { display:grid; grid-template-columns:1fr 1fr; gap:22px; align-items:start; }
+  @media (max-width:760px){ .todo-layout { grid-template-columns:1fr; } }
+  .todo-list h2, .calendar h2 { font-size:16px; margin:0 0 14px; letter-spacing:-.01em; }
+  .todo-item { display:flex; align-items:flex-start; gap:12px; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:10px; box-shadow:var(--shadow-sm); transition:box-shadow .12s ease; }
+  .todo-item:hover { box-shadow:var(--shadow); }
+  .todo-item.done { opacity:.45; }
+  .todo-check { margin-top:3px; width:17px; height:17px; accent-color:var(--blue); cursor:pointer; flex:none; }
+  .todo-main { flex:1; min-width:0; }
+  .todo-title { font-size:14px; font-weight:550; }
+  .todo-item.done .todo-title { text-decoration:line-through; }
+  .todo-meta { font-size:14px; margin-top:6px; }
+  .t-date { color:var(--text); font-weight:650; }
+  .t-time { color:var(--blue); font-weight:650; }
+  .add-btn { background:var(--card); color:var(--blue); border:1px dashed #93b4f5; width:100%; margin-bottom:10px; box-shadow:none; }
+  .add-btn:hover { transform:none; border-color:var(--blue); background:#f0f6ff; }
+  .add-form { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:12px; flex-direction:column; gap:8px; box-shadow:var(--shadow); }
+  .add-form input, .add-form select { padding:9px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; outline:none; }
+  .add-form input:focus, .add-form select:focus { border-color:var(--blue); }
+  .af-btns { display:flex; gap:8px; }
+  .ghost { background:transparent; color:var(--muted); border:1px solid var(--border); box-shadow:none; }
+  .ghost:hover { transform:none; background:#f1f5f9; }
+
+  .cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .cal-title { font-weight:650; }
+  .cal-nav { background:var(--card); color:var(--text); border:1px solid var(--border); padding:4px 12px; border-radius:8px; box-shadow:var(--shadow-sm); }
+  .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:5px; }
+  .cal-weekday { text-align:center; color:var(--muted); font-size:12px; padding:4px 0; }
+  .cal-day { background:var(--card); border:1px solid var(--border); border-radius:10px; min-height:68px; padding:5px; box-shadow:var(--shadow-sm); }
+  .cal-day.empty { background:transparent; border:none; box-shadow:none; }
+  .cal-day.today { border-color:var(--blue); box-shadow:0 0 0 3px rgba(2,132,199,.18); }
+  .cal-daynum { font-size:12px; color:var(--muted); }
+  .cal-day.today .cal-daynum { color:var(--blue); font-weight:700; }
+  .cal-evt { font-size:11px; color:#fff; border-radius:6px; padding:2px 5px; margin-top:3px; line-height:1.3; overflow-wrap:anywhere; box-shadow:0 1px 2px rgba(0,0,0,.12); }
+  .cal-evt.done { opacity:.4; text-decoration:line-through; }
+  .cal-evt.past { opacity:.4; filter:grayscale(85%); }
+
+  /* 刷新设置弹窗 */
+  .overlay { position:fixed; inset:0; background:rgba(15,23,42,.4); display:flex; align-items:center; justify-content:center; z-index:50; padding:16px; }
+  .modal { background:var(--card); border:1px solid var(--border); border-radius:14px; width:100%; max-width:400px; box-shadow:0 20px 60px rgba(15,23,42,.25); overflow:hidden; }
+  .modal-head { display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--border); }
+  .modal-head h3 { margin:0; font-size:16px; }
+  .modal-body { padding:18px; display:flex; flex-direction:column; gap:14px; }
+  .field { display:flex; flex-direction:column; gap:6px; font-size:14px; }
+  .field > span { font-weight:600; }
+  .range { color:var(--muted); }
+  .range select, .range input[type=number] { padding:6px 8px; border:1px solid var(--border); border-radius:8px; font-size:14px; margin:0 4px; background:#fff; }
+  .range input[type=number] { width:76px; }
+  .check { display:flex; align-items:center; gap:8px; font-size:14px; cursor:pointer; }
+  .check input { width:16px; height:16px; accent-color:var(--blue); }
+  .hint { font-size:12px; color:var(--muted); margin:0; }
+  .modal-foot { display:flex; justify-content:flex-end; gap:8px; padding:14px 18px; border-top:1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>📮 求职邮件看板</h1>
+      <div class="meta" id="meta"></div>
+    </div>
+    <div class="actions"><button id="settings-btn" class="ghost">⚙️ 刷新设置</button><button id="refresh">立即刷新</button></div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="todo">📋 待办 & 日历</button>
+    <button class="tab" data-tab="mail">📮 邮件看板</button>
+  </div>
+
+  <div id="panel-mail" class="panel">
+    <div id="mail-content"></div>
+  </div>
+
+  <div id="panel-todo" class="panel">
+    <div class="todo-layout">
+      <div class="todo-list">
+        <h2>待办事项</h2>
+        <button id="add-todo" class="add-btn">＋ 手动添加待办</button>
+        <div id="add-form" class="add-form" style="display:none">
+          <input id="af-name" placeholder="事项名称，如「腾讯 面试」">
+          <select id="af-type">
+            <option>面试</option><option>测评</option><option>笔试</option><option>宣讲会</option><option>Offer</option><option>拒信</option><option>其他</option>
+          </select>
+          <input id="af-date" type="date">
+          <input id="af-time" placeholder="时间，如 14:00-17:00（可留空）">
+          <div class="af-btns"><button id="af-save">保存</button><button id="af-cancel" class="ghost">取消</button></div>
+        </div>
+        <div id="todo-list"></div>
+      </div>
+      <div class="calendar">
+        <h2>日历</h2>
+        <div id="calendar"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 刷新设置弹窗 -->
+<div id="settings-overlay" class="overlay" style="display:none">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>⚙️ 刷新设置</h3>
+      <button id="settings-close" class="ghost">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <span>刷新间隔</span>
+        <div class="range">每 <input type="number" id="set-interval" min="1" max="10080"> 分钟检查一次新邮件</div>
+      </div>
+      <div class="field">
+        <span>夜间不刷新</span>
+        <div class="range">从
+          <select id="set-start"></select> 点到
+          <select id="set-end"></select> 点不刷新
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="set-weekend"> 周六、周日不刷新</label>
+      <label class="check"><input type="checkbox" id="set-holidays"> 法定节假日不刷新</label>
+      <p class="hint">60 分钟 = 1 小时；法定节假日清单写在项目里的 schedule.py，可自行增删日期。</p>
+    </div>
+    <div class="modal-foot">
+      <button id="settings-save">保存</button>
+      <button id="settings-cancel" class="ghost">取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const INITIAL_ITEMS = {{ items | tojson }};
+const MISSING = {{ missing | tojson }};
+const LAST_UPDATED = {{ (last_updated or '') | tojson }};
+</script>
+<script>
+let ITEMS = INITIAL_ITEMS;
+const TYPE_COLORS = {'面试':'#0284c7','测评':'#f59e0b','笔试':'#8b5cf6','宣讲会':'#14b8a6','Offer':'#10b981','拒信':'#94a3b8','其他':'#94a3b8'};
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDate(iso){ if(!iso) return ''; const m=String(iso).match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/); if(m) return m[1]+'-'+m[2]+'-'+m[3]+' '+m[4]+':'+m[5]; return String(iso).slice(0,16).replace('T',' '); }
+function parseEventDate(s){ if(!s||s==='无') return null; const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})/); if(!m) return null; return new Date(+m[1], +m[2]-1, +m[3]); }
+function fmtEventDate(s){ if(!s||s==='无') return null; const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})/); if(!m) return s; const d=new Date(+m[1],+m[2]-1,+m[3]); const w='日一二三四五六'[d.getDay()]; return (+m[2])+'月'+(+m[3])+'日（周'+w+'）'; }
+function isPastDate(s){ const d=parseEventDate(s); if(!d) return false; const t=new Date(); const today=new Date(t.getFullYear(),t.getMonth(),t.getDate()); return d<today; }
+function parseEventTime(s){ if(!s||s==='无') return null; const m=String(s).match(/(\d{1,2}):(\d{2})/); if(!m) return null; return (+m[1])*60+(+m[2]); }
+
+function sortTodo(a,b){
+  if(!!a.done !== !!b.done) return a.done ? 1 : -1;
+  const da=parseEventDate(a.event_date), db=parseEventDate(b.event_date);
+  if(da&&db){
+    const x=da-db;
+    if(x!==0) return x;
+    const ta=parseEventTime(a.event_time), tb=parseEventTime(b.event_time);
+    if(ta!=null&&tb!=null){ const y=ta-tb; if(y!==0) return y; }
+    if(ta!=null&&tb==null) return -1;
+    if(ta==null&&tb!=null) return 1;
+  }
+  if(da&&!db) return -1; if(!da&&db) return 1;
+  return (b.ts||0)-(a.ts||0);
+}
+
+function renderMail(){
+  const box=document.getElementById('mail-content');
+  if(MISSING.length){
+    box.innerHTML='<div class="setup"><b>还没配置完成。</b> 请在项目目录下的 <code>.env</code> 文件里填写：'+MISSING.map(m=>'<code>'+esc(m)+'</code>').join(' ')+'<br>填写方法见 <code>README.md</code>（尤其「获取授权码」和「IMAP 服务器」两节）。</div>';
+    return;
+  }
+  const mailItems=ITEMS.filter(it=>!it.manual);
+  if(mailItems.length===0){ box.innerHTML='<div class="empty">暂时没有需要关注的邮件（面试 / 测评 / 笔试 / 宣讲会等）</div>'; return; }
+  const counts={}; mailItems.forEach(it=>counts[it.type]=(counts[it.type]||0)+1);
+  let html='<div class="summary"><span class="chip">共 <b>'+mailItems.length+'</b> 封</span>';
+  ['面试','测评','笔试','宣讲会','Offer','拒信'].forEach(t=>{ if(counts[t]) html+='<span class="chip">'+t+' <b>'+counts[t]+'</b></span>'; });
+  html+='</div>';
+  mailItems.forEach(it=>{
+    const deadline=(it.deadline&&it.deadline!=='无')?'<span class="deadline">⏰ '+esc(it.deadline)+'</span>':'';
+    html+='<div class="card"><div class="top"><span class="tag '+esc(it.type)+'">'+esc(it.type)+'</span><span class="company">'+esc(it.company)+'</span><span class="subject">'+esc(it.subject)+'</span></div><div class="from">'+esc(it.from)+' · '+esc(fmtDate(it.date))+(it.account?' · 📬 '+esc(it.account):'')+'</div>'+(it.summary&&it.summary!=='(无)'?'<p class="summary-text">'+esc(it.summary)+'</p>':'')+'<div class="footer">'+deadline+'<span class="urgency '+esc(it.urgency)+'">'+esc(it.urgency)+'优先级</span></div></div>';
+  });
+  box.innerHTML=html;
+}
+
+function renderTodo(){
+  const list=document.getElementById('todo-list');
+  const sorted=[...ITEMS].filter(it=>it.manual||it.type!=='宣讲会').filter(it=>!isPastDate(it.event_date)).sort(sortTodo);
+  if(sorted.length===0){ list.innerHTML='<div class="empty">暂无待办事项</div>'; return; }
+  let html='';
+  sorted.forEach((it,idx)=>{
+    const dt=fmtEventDate(it.event_date);
+    const tm=(it.event_time&&it.event_time!=='无')?'  <span class="t-time">⏰ '+esc(it.event_time)+'</span>':'';
+    const meta=dt?('📅 <span class="t-date">'+esc(dt)+'</span>'+tm):'无日期';
+    html+='<div class="todo-item'+(it.done?' done':'')+'" data-idx="'+idx+'"><input type="checkbox" class="todo-check"'+(it.done?' checked':'')+'><span class="tag '+esc(it.type)+'">'+esc(it.type)+'</span><div class="todo-main"><div class="todo-title">'+esc(it.company)+(it.subject?' — '+esc(it.subject):'')+'</div><div class="todo-meta">'+meta+'</div></div></div>';
+  });
+  list.innerHTML=html;
+  list.querySelectorAll('.todo-check').forEach(cb=>{
+    cb.addEventListener('change',()=>{
+      const idx=+cb.closest('.todo-item').dataset.idx;
+      toggle(sorted[idx].id);
+    });
+  });
+}
+
+let calYear, calMonth;
+function renderCalendar(){
+  const cal=document.getElementById('calendar');
+  const now=new Date();
+  if(calYear==null){ calYear=now.getFullYear(); calMonth=now.getMonth(); }
+  const events={};
+  ITEMS.filter(it=>it.manual||it.type!=='宣讲会').forEach(it=>{ const d=(it.event_date&&it.event_date!=='无')?it.event_date:null; if(!d) return; (events[d]=events[d]||[]).push(it); });
+  Object.keys(events).forEach(d=>events[d].sort((a,b)=>{ const ta=parseEventTime(a.event_time), tb=parseEventTime(b.event_time); if(ta==null&&tb==null) return 0; if(ta==null) return 1; if(tb==null) return -1; return ta-tb; }));
+  let html='<div class="cal-header"><button class="cal-nav" data-d="-1">‹</button><div class="cal-title">'+calYear+'年'+(calMonth+1)+'月</div><button class="cal-nav" data-d="1">›</button></div>';
+  html+='<div class="cal-grid">';
+  ['日','一','二','三','四','五','六'].forEach(w=>html+='<div class="cal-weekday">'+w+'</div>');
+  const first=new Date(calYear,calMonth,1).getDay();
+  const days=new Date(calYear,calMonth+1,0).getDate();
+  for(let i=0;i<first;i++) html+='<div class="cal-day empty"></div>';
+  for(let day=1;day<=days;day++){
+    const ds=calYear+'-'+String(calMonth+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+    const isToday=now.getFullYear()===calYear&&now.getMonth()===calMonth&&now.getDate()===day;
+    html+='<div class="cal-day'+(isToday?' today':'')+'"><div class="cal-daynum">'+day+'</div>';
+    (events[ds]||[]).forEach(it=>{ const tm=(it.event_time&&it.event_time!=='无')?it.event_time+' ':''; html+='<div class="cal-evt'+(it.done?' done':'')+(isPastDate(ds)?' past':'')+'" style="background:'+(TYPE_COLORS[it.type]||'#94a3b8')+'">'+esc(tm)+esc(it.type)+' '+esc(it.company)+'</div>'; });
+    html+='</div>';
+  }
+  html+='</div>';
+  cal.innerHTML=html;
+  cal.querySelectorAll('.cal-nav').forEach(b=>b.onclick=()=>{ calMonth+=+b.dataset.d; if(calMonth<0){calMonth=11;calYear--;} if(calMonth>11){calMonth=0;calYear++;} renderCalendar(); });
+}
+
+function showAddForm(){
+  document.getElementById('add-form').style.display='flex';
+  const d=document.getElementById('af-date');
+  if(!d.value){ const t=new Date(); d.value=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'); }
+}
+function hideAddForm(){ document.getElementById('add-form').style.display='none'; }
+async function addTodo(){
+  const name=document.getElementById('af-name').value.trim();
+  const etype=document.getElementById('af-type').value;
+  const date=document.getElementById('af-date').value;
+  const time=document.getElementById('af-time').value.trim();
+  if(!name){ alert('请输入事项名称'); return; }
+  if(!date){ alert('请选择日期'); return; }
+  try{
+    const res=await fetch('/api/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,type:etype,date,time})});
+    const data=await res.json();
+    if(!data.ok){ alert(data.error||'添加失败'); return; }
+    document.getElementById('af-name').value=''; document.getElementById('af-time').value='';
+    hideAddForm(); await refreshData();
+  }catch(e){ alert('操作出错：'+e); }
+}
+
+async function toggle(id){
+  try{
+    const res=await fetch('/api/toggle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+    const data=await res.json();
+    if(!data.ok){ alert(data.error||'操作失败'); return; }
+    const it=ITEMS.find(x=>x.id===id); if(it) it.done=data.done;
+    renderTodo(); renderCalendar();
+  }catch(e){ alert('操作出错：'+e); }
+}
+
+async function refreshData(){
+  const r=await fetch('/api/items'); const data=await r.json();
+  ITEMS=(data.items||[]).filter(it=>it.manual||it.type!=='其他').map(it=>{const {body,...rest}=it;return rest;});
+  if(data.last_updated) document.getElementById('meta').textContent='最近更新 '+data.last_updated;
+  renderMail(); renderTodo(); renderCalendar();
+}
+
+async function refresh(){
+  const btn=document.getElementById('refresh'); btn.disabled=true;
+  try{ await fetch('/api/refresh'); await refreshData(); }
+  catch(e){ console.error(e); }
+  finally{ btn.disabled=false; }
+}
+
+function closeSettings(){ document.getElementById('settings-overlay').style.display='none'; }
+async function openSettings(){
+  const ss=document.getElementById('set-start'), se=document.getElementById('set-end');
+  if(ss.options.length===0){
+    for(let i=0;i<24;i++) ss.add(new Option(i+' 点', i));
+    for(let i=0;i<=24;i++) se.add(new Option(i+' 点', i));
+  }
+  document.getElementById('settings-overlay').style.display='flex';
+  try{
+    const res=await fetch('/api/settings'); const s=await res.json();
+    ss.value=String(s.night_start); se.value=String(s.night_end);
+    document.getElementById('set-weekend').checked=!!s.skip_weekend;
+    document.getElementById('set-holidays').checked=!!s.skip_holidays;
+    document.getElementById('set-interval').value=s.poll_interval_minutes;
+  }catch(e){ console.error(e); }
+}
+async function saveSettings(){
+  const body={
+    night_start:+document.getElementById('set-start').value,
+    night_end:+document.getElementById('set-end').value,
+    skip_weekend:document.getElementById('set-weekend').checked,
+    skip_holidays:document.getElementById('set-holidays').checked,
+    poll_interval_minutes:+document.getElementById('set-interval').value
+  };
+  try{
+    const res=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const data=await res.json();
+    if(!data.ok){ alert(data.error||'保存失败'); return; }
+    closeSettings();
+  }catch(e){ alert('操作出错：'+e); }
+}
+
+function showTab(name){
+  document.querySelectorAll('.panel').forEach(p=>p.style.display='none');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('panel-'+name).style.display='block';
+  document.querySelector('.tab[data-tab="'+name+'"]').classList.add('active');
+  try{ localStorage.setItem('activeTab',name); }catch(e){}
+}
+
+// init
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>showTab(t.dataset.tab)));
+document.getElementById('refresh').addEventListener('click',refresh);
+document.getElementById('add-todo').addEventListener('click',showAddForm);
+document.getElementById('af-save').addEventListener('click',addTodo);
+document.getElementById('af-cancel').addEventListener('click',hideAddForm);
+document.getElementById('settings-btn').addEventListener('click',openSettings);
+document.getElementById('settings-close').addEventListener('click',closeSettings);
+document.getElementById('settings-cancel').addEventListener('click',closeSettings);
+document.getElementById('settings-save').addEventListener('click',saveSettings);
+document.getElementById('settings-overlay').addEventListener('click',e=>{ if(e.target.id==='settings-overlay') closeSettings(); });
+if(LAST_UPDATED) document.getElementById('meta').textContent='最近更新 '+LAST_UPDATED;
+renderMail(); renderTodo(); renderCalendar();
+let savedTab=null; try{ savedTab=localStorage.getItem('activeTab'); }catch(e){}
+showTab(savedTab==='mail'?'mail':'todo');
+setInterval(refreshData, 60000);
+</script>
+</body>
+</html>
