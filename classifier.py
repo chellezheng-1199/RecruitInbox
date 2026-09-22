@@ -1,5 +1,7 @@
 """调用 DeepSeek API 对邮件分类并提取关键信息。"""
+import datetime
 import json
+import re
 
 import requests
 
@@ -45,6 +47,34 @@ def _normalize_date(value):
     return s
 
 
+def _relative_deadline(email_dict):
+    """识别「72小时内 / 3天内 / 有效期72小时」这类相对截止。
+    返回 (截止 datetime, 时长数字, 时长单位)；无则返回 None。"""
+    text = " ".join([email_dict.get("subject", "") or "", email_dict.get("body", "") or ""])
+    candidates = []
+    for pat in (
+        r"(\d{1,3})\s*(小时|时|天|日|周)\s*(?:内|有效|失效)",
+        r"(?:有效|失效)[期为]?\s*(\d{1,3})\s*(小时|时|天|日|周)",
+    ):
+        for m in re.finditer(pat, text):
+            candidates.append((m.start(), int(m.group(1)), m.group(2)))
+    if not candidates:
+        return None
+    _, amount, unit = min(candidates, key=lambda x: x[0])
+    date_str = str(email_dict.get("date", "") or "").strip()
+    try:
+        dt = datetime.datetime.fromisoformat(date_str)
+    except Exception:
+        return None
+    if unit in ("小时", "时"):
+        deadline = dt + datetime.timedelta(hours=amount)
+    elif unit in ("天", "日"):
+        deadline = dt + datetime.timedelta(days=amount)
+    else:  # 周
+        deadline = dt + datetime.timedelta(weeks=amount)
+    return deadline, amount, unit
+
+
 def classify(email_dict, cfg=None):
     """返回 {type, company, summary, deadline, urgency}。"""
     cfg = cfg or config.config
@@ -77,13 +107,25 @@ def classify(email_dict, cfg=None):
     resp.raise_for_status()
     content = resp.json()["choices"][0]["message"]["content"]
     data = _parse_json(content)
-    # 兜底：确保字段齐全
+    event_date = _normalize_date(data.get("event_date", "无"))
+    event_time = data.get("event_time", "无")
+    deadline = data.get("deadline", "无")
+    # 兜底：邮件只写「72小时内 / 3天内」这类相对截止、没给出具体时分时，
+    # 用邮件接收时间推算精确截止时间，避免「无截止时间」。
+    rel = _relative_deadline(email_dict)
+    if rel is not None and event_time == "无":
+        rel_dt, amount, unit = rel
+        computed_date = rel_dt.strftime("%Y-%m-%d")
+        if event_date == "无" or event_date == computed_date:
+            event_date = computed_date
+            event_time = rel_dt.strftime("%H:%M")
+            deadline = f"{event_date} {event_time} 截止（邮件后{amount}{unit}）"
     return {
         "type": data.get("type", "其他"),
         "company": data.get("company", "未知"),
         "summary": data.get("summary", ""),
-        "deadline": data.get("deadline", "无"),
-        "event_date": _normalize_date(data.get("event_date", "无")),
-        "event_time": data.get("event_time", "无"),
+        "deadline": deadline,
+        "event_date": event_date,
+        "event_time": event_time,
         "urgency": data.get("urgency", "低"),
     }
