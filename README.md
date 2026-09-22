@@ -12,6 +12,11 @@
 - **日历视图**：事项按日期落到月历，按时间排序，过期置灰不消失。
 - **可配置刷新策略**：自定义刷新间隔，夜间 / 周末 / 节假日不刷新。
 - **多邮箱同时抓取**：一个邮箱挂了不影响其它。
+- **图示（因为涉及很多个人信息，所以做了部分打码处理～）**：
+- <img width="1019" height="762" alt="image" src="https://github.com/user-attachments/assets/ae9377d9-e7ff-4159-8912-472ac3384531" />
+- <img width="1135" height="749" alt="image" src="https://github.com/user-attachments/assets/676cca5d-5e0a-40d2-95bb-ab9aa7fec831" />
+
+
 
 ## 快速开始
 
